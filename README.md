@@ -9,7 +9,7 @@ It replaces:
 ## About
 **FlightGearBuilder-NG** Is a Shell Script that is used to build the **[FlightGear Flight Simulator](https://www.flightgear.org/)** from it's source code.
 
-It will download, confgure and compile FlightGear and its main dependencies.
+It will download, configure and compile FlightGear and its main dependencies.
 - [Plib](https://sourceforge.net/projects/libplib/)
 - [OpenSceneGraph](https://github.com/openscenegraph/OpenSceneGraph.git)
 - [SimGear](https://sourceforge.net/p/flightgear/simgear/ci/next/tree/)
