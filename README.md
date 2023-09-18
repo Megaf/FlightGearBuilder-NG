@@ -1,6 +1,9 @@
 # FlightGearBuilder-NG
 Next Generation of FlightGearBuilder
 
+![image](https://github.com/Megaf/FlightGearBuilder-NG/assets/6201512/0e1906ce-1889-45ef-a920-4c7af8e261b2)
+
+
 It replaces:
 - [FlightGearBuilder](https://github.com/Megaf/FlightGearBuilder)
 - [FlightGear-Installer](https://github.com/Megaf/FlightGear-Installer)
