@@ -46,26 +46,26 @@ now() {
 [ -z "${install}" ] && install=true
 [ -z "${uninstall}" ] && uninstall=false
 
-projectName="FlightGear"                                    # Thing that will be built
-projectVersion="2020.3"                                     # Thing's version
-projectNameFull="${projectName}-${projectVersion}"          # Thing's full name, for stuff
-targetCPU="core2"                                           # Optimizing for this CPU
-minimalCPU="core2"                                          # Will run on this or better
-rootDirectory="/media/${USER}/${projectName}"               # Install Thing here
-[ -n "${TERMUX_VERSION}" ] && rootDirectory="${HOME}"       # Or here if Termux
-installDirectory="${rootDirectory}/${projectNameFull}"      # Actually, install here
-sourcecodeDirectory="${installDirectory}/SourceCode"        # Put source code here
-buildfilesDirectory="${installDirectory}/BuildFiles"        # Put build stuff here
-sourceDir() { echo "${sourcecodeDirectory}/${1}"; }         # Get source dir for this
-buildDir() { echo "${buildfilesDirectory:?}/${1}"; }        # And build dir for this
-dataDirectory="${installDirectory}/Data"                    # FlightGear Data dir here
-aircraftDirectory="${installDirectory}/Aircraft"            # FlightGear Aircraft here
-fghomeDirectory="${installDirectory}/FG_HOME"               # FlightGear Settings here
-fgfsrcFile="${installDirectory}/FG_HOME/fgfsrc"             # FlightGear "configuration" file
-downloadsDirectory="${installDirectory}/Downloads"          # FlightGear Download dir
-terrasyncDirectory="${downloadsDirectory}/TerraSync"        # FlightGear TerraSync dir
-installedfilesList="${installDirectory}/InstalledFiles.txt" # List of every single file
-launcherFile="${installDirectory}/flightgear"               # Thing that launchers FlightGear
+projectName="FlightGear"                             # Thing that will be built
+projectVersion="2020.3"                              # Thing's version
+fullName="${projectName}-${projectVersion}"          # Thing's full name
+targetCPU="core2"                                    # Optimizing for this CPU
+minimalCPU="core2"                                   # Runs on this or better
+rootDirectory="/media/${USER}/${projectName}"        # Install Thing here
+[[ "${TERMUX_VERSION}" ]] && rootDirectory="${HOME}" # Or here if Termux
+installDirectory="${rootDirectory}/${fullName}"      # Actually, install here
+sourcecodeDirectory="${installDirectory}/SourceCode" # Put source code here
+buildfilesDirectory="${installDirectory}/BuildFiles" # Put build stuff here
+sourceDir() { echo "${sourcecodeDirectory}/${1}"; }  # Get source dir for this
+buildDir() { echo "${buildfilesDirectory:?}/${1}"; } # And build dir for this
+dataDirectory="${installDirectory}/Data"             # FG's Data dir here
+aircraftDirectory="${installDirectory}/Aircraft"     # FG's Aircraft here
+fghomeDirectory="${installDirectory}/FG_HOME"        # FG's Settings here
+fgfsrcFile="${installDirectory}/FG_HOME/fgfsrc"      # FG's "configuration" file
+downloadsDirectory="${installDirectory}/Downloads"   # FG's Download dir
+terrasyncDirectory="${downloadsDirectory}/TerraSync" # FG's TerraSync dir
+fileList="${installDirectory}/InstalledFiles.txt"    # List of every single file
+launcherFile="${installDirectory}/flightgear"        # FG's launcher'
 
 ## Defining directories needed by FlightGear
 flightgearDirectories=(
@@ -77,9 +77,9 @@ flightgearDirectories=(
 )
 
 #### Git Definitions ####
-gitJobs=16  # Simultaneous Git Jobs
-# Git Addresses for each required component
-flightgearGit="https://gitlab.com/flightgear" # "git://git.code.sf.net/p/flightgear"
+gitJobs=16                                           # Simultaneous Git Jobs
+# Git Addresses for each component. "git://git.code.sf.net/p/flightgear"
+flightgearGit="https://gitlab.com/flightgear"
 plibAddress="git://git.code.sf.net/p/libplib/code"
 osgAddress="https://github.com/openscenegraph/OpenSceneGraph.git"
 simgearAddress="${flightgearGit}/simgear.git"
@@ -92,22 +92,26 @@ flightgearBranch="release/2020.3"
 
 #### Compiler Definitions ####
 # CPU and IO Priority for the compiler
-cpuPriority="19"  # Build Scheduling priority: -20 to 19. Larger = Less priority.
-ioPriority="3"  # Build IO priority: Idle(3), Best-effort(2), Realtime(1), None(0).
-compilerJobs="$(nproc)" # Simultaneous Compiler Jobs
-buildType="Release" # Build type cmake option
+# Build Scheduling priority: -20 to 19. Larger = Less priority.
+cpuPriority="19"
+# Build IO priority: Idle(3), Best-effort(2), Realtime(1), None(0).
+ioPriority="3"
+compilerJobs="$(nproc)"                              # Simultaneous Build Jobs
+buildType="Release"                                  # Build type cmake option
 # Disable compiler warnings in cmake
 cmakeOptions=(
   "-Wno-dev"
 )
 
 #### Compiler Flags ####
-cFlags="-w -pipe -O3 -DNDEBUG -funroll-loops -mfpmath=both \
--march=${minimalCPU} -mtune=${targetCPU}"                   # C Flags
-cxxFlags="${cFlags}"                                        # C++ Flags
-glLibrary="LEGACY"                                          # Or GLVND, which is newer
-PATH="/usr/lib/ccache:$PATH"                                # Enables compiler output caching
-export LDFLAGS="-Wl,--copy-dt-needed-entries -Wl,-s"        # FG won't link without this
+cFlags="-w -pipe -O3 -DNDEBUG -funroll-loops \
+-mfpmath=both -march=${minimalCPU} \
+-mtune=${targetCPU}"                                 # C Flags
+cxxFlags="${cFlags}"                                 # C++ Flags
+glLibrary="LEGACY"                                   # Or GLVND, which is newer
+PATH="/usr/lib/ccache:$PATH"                         # Enables compiler caching
+export LDFLAGS="-Wl,--copy-dt-needed-entries \
+-Wl,-s"                                              # FG won't link without it
 
 #### CMake flags for each target ####
 # Common flags for all targets
@@ -221,7 +225,7 @@ fgcolor() {
   # This function gets a colour and brightness intensity and outputs
   # RGB colour value for each brightness step inside the loop.
   local color="${1}"
-  local shade="${2}"
+  local lit="${2}"
 
   # FlightGear's colour palette.
   # blue="66;126;191"
@@ -233,16 +237,16 @@ fgcolor() {
   # Used by other functions inside `\e[38(or48);2(24 bit);RRR;GGG;BBBm`
   case "${color}" in
     "blue")
-      echo "$((shade * 66 / 100));$((shade * 126 / 100));$((shade * 191 / 100))"
+      echo "$((lit * 66 / 100));$((lit * 126 / 100));$((lit * 191 / 100))"
       ;;
     "yellow")
-      echo "$((shade * 254 / 100));$((shade * 255 / 100));$((shade * 71 / 100))"
+      echo "$((lit * 254 / 100));$((lit * 255 / 100));$((lit * 71 / 100))"
       ;;
     "white")
-      echo "$((shade * 250 / 100));$((shade * 248 / 100));$((shade * 254 / 100))"
+      echo "$((lit * 250 / 100));$((lit * 248 / 100));$((lit * 254 / 100))"
       ;;
     "gray")
-      echo "$((shade * 35 / 100));$((shade * 28 / 100));$((shade * 42 / 100))"
+      echo "$((lit * 35 / 100));$((lit * 28 / 100));$((lit * 42 / 100))"
       ;;
   esac
 }
@@ -281,13 +285,13 @@ FullFG() {
     white="$(fgcolor "white" "${level}")"
     gray="$(fgcolor "gray" "${level}")"
 
-    # These functions will simply colour the background for a " " according to values above.
+    # These functions will simply fill colour to the background
+    # with " " according to values above.
     BB() { echo -en "\e[48;2;000;000;000m \e[0m"; }  # Black   Background
     GB() { echo -en "\e[48;2;${gray}m \e[0m"; }      # Gray    Background
     YB() { echo -en "\e[48;2;${yellow}m \e[0m"; }    # Yellow  Background
     CB() { echo -en "\e[48;2;${blue}m \e[0m"; }      # ~B~Clue Background
     WB() { echo -en "\e[48;2;${white}m \e[0m"; }     # White   Background
-    RB() { echo -en "\e[0m "; }                      # Resets  Background
     NL() { echo -e "\e[0m"; }                        # New     Line
 
     echo -en "\e[u" # Moves back to previously stored cursor position.
@@ -318,14 +322,14 @@ tell() {
   # TODO: Code below is ugly and wrong. It works, but it sucks. Make it better.
   # DEBUG: is only shown when `debug=true`
   local status
-  local description
+  local text
   status="${1}"
-  description="${2}"
+  text="${2}"
   # Dirty way of setting some colours.
   blue="\e[34m" green="\e[32m" red="\e[31m" rst="\e[0m"
   nu="\e[4m" bold="\e[1m" nn="\e[24m" nb="\e[22m"
   # Will print text with type read by `case` who sets formatting.
-  print() { echo -e "${1}-- $(now)${2}[${status}] ${3}${description}${nn}.\e[0m"; }
+  print() { echo -e "${1}-- $(now)${2}[${status}] ${3}${text}${nn}.\e[0m"; }
   case "${status}" in
     "DEBUG")
       [ "${debug}" = true ] && print "${rst}" "${bold}${blue}" "${nb}"
@@ -343,10 +347,11 @@ tell() {
 }
 
 #### Script's business side starts here ####
-# CheckDepends, Get, CMake, Compile and Install functions only run if their flags=true,
+# DependsCheck, Get, CMake, Compile and Install functions,
+# will only run if their flags=true,
 # For example: `download=true`, `compile=true`
 #
-# CheckDepends = verifies dependencies are installed
+# DependsCheck = verifies dependencies are installed
 # Get = Downloads codes from Git, `git clone` `git pull` `git checkout`
 # CMake = Runs `cmake` using flags from the array
 # Compile = Runs `make -j $(nproc)`
@@ -397,7 +402,7 @@ enterdir() {
 
 MakeConfig() {
   # This will generate a `fgfsrc` (https://wiki.flightgear.org/Fgfsrc)
-  # With settings adequate for an old 64 bit CPU, such as a Pentium 4 and Athlon 64
+  # Settings adequate for old 64 bit CPUs, such as a Pentium 4 and Athlon 64.
   tell "DEBUG" "Enter MakeConfig."
   tell "INFO" "Installing ${fgfsrcFile}"
   delete "${fgfsrcFile}"
@@ -507,27 +512,27 @@ EOF
 }
 
 Get() {
-  # This function is a "Code downloader from Git" (tm).
-  # It checks if the code has already been cloned, if cloned, switches to the right
+  # This function is a "Code downloader for Git" (tm).
+  # It checks if the code has already been cloned, if so, it checksout the right
   # branch and updates it, if not downloaded, then it downloads it.
-  local thing="${1}"
+  local this="${1}"
   local url="${2}"
   local branch="${3}"
   if [ "${download}" = true ]; then
     tell "DEBUG" "Enter Get."
-    if [ -d "$(sourceDir "${thing}")" ]; then
-      tell "INFO" "Updating \"${thing}\""
-      enterdir "$(sourceDir "${thing}")"
+    if [ -d "$(sourceDir "${this}")" ]; then
+      tell "INFO" "Updating \"${this}\""
+      enterdir "$(sourceDir "${this}")"
       git pull --prune --jobs="${gitJobs}"
       git checkout "${branch}"
       git pull --prune --jobs="${gitJobs}"
     else
-      tell "INFO" "Downloading \"${thing}\" source code."
+      tell "INFO" "Downloading \"${this}\" source code."
       makedir "${sourcecodeDirectory}"
-      git clone -b "${branch}" -j "${gitJobs}" "${url}" "$(sourceDir "${thing}")"
-      if [ "${thing}" = "plib" ]; then
-        tell "DEBUG" "\"${thing}\" detected, doing version stuff."
-        enterdir "$(sourceDir "${thing}")"
+      git clone -b "${branch}" -j "${gitJobs}" "${url}" "$(sourceDir "${this}")"
+      if [ "${this}" = "plib" ]; then
+        tell "DEBUG" "\"${this}\" detected, doing version stuff."
+        enterdir "$(sourceDir "${this}")"
         echo "1.8.6" > version
         sed s/PLIB_TINY_VERSION\ \ 5/PLIB_TINY_VERSION\ \ 6/ -i src/util/ul.h
         git commit --all --message "Increase tiny version to 6."
@@ -558,7 +563,8 @@ CMake() {
     tell "DEBUG" "Setting main CMake cmakeFlags"
     tell "DEBUG" "commonCMakeFlags=${commonCMakeFlags[*]}"
     tell "DEBUG" "${thing}'s cmakeFlags set to ${targetFlags[*]}'"
-    cmake "${cmakeOptions[@]}" "$(sourceDir "${thing}")" "${targetFlags[@]}" || exit 1
+    cmake "${cmakeOptions[@]}" "$(sourceDir "${thing}")" \
+    "${targetFlags[@]}" || exit 1
   else
     tell "DEBUG" "cmake=false"
   fi
@@ -574,7 +580,8 @@ Make() {
   case "${makeCommand}" in
     "compile")
       tell "INFO" "Compiling \"${thing}\""
-      if nice -n "${cpuPriority}" ionice -c "${ioPriority}" make --jobs="${compilerJobs}"; then
+      if nice -n "${cpuPriority}" ionice -c "${ioPriority}" \
+      make --jobs="${compilerJobs}"; then
         tell "INFO" "\"${thing}\" compiled successfully"
       else
         tell "ERROR" "\"${thing}\" failed to compile"
@@ -617,7 +624,7 @@ Install() {
     tell "Installing" "\"${thing}\""
     enterdir "$(buildDir "${thing}")"
     Make "${thing}" "install"
-    cat install_manifest.txt >> "${installedfilesList}"
+    cat install_manifest.txt >> "${fileList}"
     if [ "${thing}" = "flightgear" ]; then
       for directoryName in "${flightgearDirectories[@]}"; do
         makedir "${directoryName}"
@@ -664,17 +671,17 @@ EOF
 #  local thing="${1}"
 #  if [ "${uninstall}" = true ]; then
 #    tell "DEBUG" "Enter UninstallProject"
-#    if [ -f "${installedfilesList}" ]; then
+#    if [ -f "${fileList}" ]; then
 #      tell "INFO" "Uninstalling: ${thing}"
 #      while IFS= read -r line; do
 #        if [ -n "${line}" ]; then
 #          tell "INFO" "Deleting: ${line}"
 #          rm -rf "${line}"
 #        fi
-#      done < "${installedfilesList}"
+#      done < "${fileList}"
 #      tell "INFO" "Uninstalling: ${thing} completed."
 #    else
-#      tell "ERROR" "Can't uninstall ${thing}, ${installedfilesList} not found."
+#      tell "ERROR" "Can't uninstall ${thing}, ${fileList} not found."
 #      exit 1
 #    fi
 #  fi
@@ -692,9 +699,9 @@ DependsCheck() {
         for dependencyName in "${dependenciesList[@]}"; do
           tell "DEBUG" "Checking if [${dependencyName}] is installed"
           if which "${dependencyName}" 1> /dev/null; then
-            tell "INFO" "${dependencyName} found at $(which "${dependencyName}")"
+            tell "DEBUG" "${dependencyName} found. $(which "${dependencyName}")"
           else
-            tell "ERROR" "Couldn't find ${dependencyName} installed on your system"
+            tell "ERROR" "Couldn't find ${dependencyName}"
             exit 1
           fi
         done
@@ -843,10 +850,13 @@ for commandlineArgument in "${commandlineArguments[@]}"; do
 done
 
 #### Show Starter ####
-_do "general" # Checks for general dependencies, `gcc`, `git` and so on.
+# Checks for general dependencies, `gcc`, `git` and so on.
+[[ "$#" -gt 0 ]] && _do "general"
 
-# Walks through all command line arguments, and install each component in an ordered way.
-# For that, it walks, in order, the "components" array and compares it to the argument.
+# Walks through all command line arguments, and install each component in
+# an ordered way.
+# For that, it walks, in order, the "components" array and
+# compares it to the argument.
 # Executing the appropriate function accordingly.
 for componentName in "${availableComponents[@]}"; do
   for comandlineArgument in "${commandlineArguments[@]}"; do
