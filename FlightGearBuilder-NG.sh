@@ -19,16 +19,16 @@
 # TODO: ADD FILES AND DIRS CREATED BY INSTALLER TO INSTALLEDFILES.
 # TODO: ADD NOTICE LEVEL.
 # TODO: TRYING TO FIGURE OUT HOW TO, IN ONE LINE, SEE IF THERE'S ANY VALID ARG.
-# TODO: Add dependencies for Plib and OSG.
-# TODO: Add more comments to the code.
-# TODO: Improve code spacing.
-# TODO: Adjust launcher's code.
-# TODO: Add install support for FGData.
-# TODO: Make options for more limited colours and or black and white.
-# TODO: Add Uninstall capability.
-# TODO: Add proper help.
+# TODO: ADD DEPENDENCIES FOR PLIB AND OSG.
+# TODO: ADD MORE COMMENTS TO THE CODE.
+# TODO: ADD UNINSTALL CAPABILITY.
+# TODO: ADD OPTION TO BUILD AND ENABLE OPENTRACK.
+# TODO: ADD OPTIONS TO INSTALL `.desktop` SHORTCUTS.
+# TODO: ADD OPTIONS TO BUILD ALL COMPONENTS IN SEQUENCE.
 
 commandlineArguments=( "$@" )
+
+clear
 
 # Prints current time, used for simple console output.
 now() {
@@ -36,36 +36,219 @@ now() {
 }
 
 
+print() { printf '%s\n' "${*}"; }
+
+
+tell() {
+  # This function will write text type and text given by two inputs.
+  # It will colour the text and highlight status according to status type.
+  # TODO: CODE BELOW IS UGLY AND WRONG. IT WORKS, BUT IT SUCKS. MAKE IT BETTER.
+  # DEBUG: is only shown when `debug=true`
+  local status
+  local text
+  status="${1}"
+  text="${2}"
+  # Dirty way of setting some colours.
+  blue="\e[34m" green="\e[32m" red="\e[31m" rst="\e[0m"
+  nu="\e[4m" bold="\e[1m" nn="\e[24m" nb="\e[22m"
+  # Will print text with type read by `case` who sets formatting.
+  _print() { echo -e "${1}-- $(now)${2}[${status}] ${3}${text}${nn}.\e[0m"; }
+  case "${status}" in
+    "DEBUG")
+      [ "${debug}" = true ] && _print "${rst}" "${bold}${blue}" "${nb}"
+      ;;
+    "INFO")
+      [ "${info}" = true ] && _print "${rst}" "${bold}${green}" "${nb}"
+      ;;
+    "ERROR")
+      [ "${status}" = "ERROR" ] && _print "${rst}" "${bold}${red}" "${nu}${nb}"
+      ;;
+    *)
+      _print "${rst}" "${bold}${blue}" "${nb}"
+      ;;
+  esac
+}
+
+# Walks though the command line arguments and do stuff.
+# Sets script behaviors by setting those variables.
+for commandlineArgument in "${commandlineArguments[@]}"; do
+  case "${commandlineArgument}" in
+    "--help")
+      tell "DEBUG" "Help set"
+      help=true
+      shift
+      ;;
+    "--debug")
+      debug=true
+      tell "DEBUG" "Debug messages enabled"
+      shift
+      ;;
+    "--install-dir="*)
+      prefix="$(printf '%s' "${commandlineArgument}" | cut -d "=" -f 2)"
+      shift
+      tell "INFO" "Installing to: ${prefix}"
+      export prefix
+      ;;
+    "--next"|"--nightly")
+      shift
+      projectVersion="next"
+      flightgearBranch="next"
+      osgBranch="master"
+      tell "INFO" "Will build version \"Next\""
+      ;;
+    "--ninja")
+      tell "DEBUG" "Using Ninja instead of Make"
+      ninja=true
+      shift
+      ;;
+    "--no-download")
+      tell "DEBUG" "Download disabled"
+      download=false
+      shift
+      ;;
+    "--no-check-packages")
+      tell "DEBUG" "Check packages enabled"
+      checkpackages=false
+      shift
+      ;;
+    "--full-check-packages")
+      tell "DEBUG" "Full check packages enabled"
+      checkpackages=full
+      shift
+      ;;
+    "--no-check-dependencies")
+      tell "DEBUG" "Check dependencies disabled"
+      checkdepends=false
+      shift
+      ;;
+    "--no-cmake")
+      tell "DEBUG" "CMake disabled"
+      cmake=false
+      shift
+      ;;
+    "--no-compile")
+      tell "DEBUG" "Compile disabled"
+      compile=false
+      shift
+      ;;
+    "--no-config")
+      tell "DEBUG" "Config generator disabled"
+      config=false
+      shift
+      ;;
+    "--no-install")
+      tell "DEBUG" "Install disabled"
+      install=false
+      shift
+      ;;
+  esac
+done
+
+help_text="FlightGearBuilder-NG Version ${BuilderVersion}
+
+This program installs FlightGear from its source code.
+It will will download the source code and compile the following:
+- Plib
+- OpenSceneGraph
+- SimGear
+- FlightGear
+
+Components: Dependencies that FlightGearBuilder-NG can install.
+--install-plib          => Selects Plib for installation.
+--install-osg           => Selects OpenSceneGraph for instalation.
+--install-osgxr         => Selects osgXR for instalation.
+--install-simgear       => Selects SimGear for installation.
+--install-flightgear    => Selects FlightGear for installation.
+
+Options: The following uptions must be specified BEFORE listing the desired \
+components.
+--help                  => This help page.
+--debug                 => Enables FlightGearBuilder's debug messages.
+--install-dir=/path     => Specifies where FlightGear should be installed.
+--next                  => Builds the development version of FlightGear.
+--ninja                 => Uses Ninja instead of Make.
+--no-download           => Don't download nor update source codes.
+--no-check-packages     => Skips installed dependencies check.
+--full-check-packages   => Perform a full dependency check for the Qt launcher.
+--no-check-dependencies => Skips checking if required components were installed.
+--no-cmake              => Skips running cmake.
+--no-compile            => Skips compiling.
+--no-install            => Skips installing.
+--no-config             => Skips FlightGear-Builder-NG's custom configuration.
+
+Default folders: These are the folders for this installation of FlightGear.
+=> Download folder: TerraSync, aditional scenery and photoscenery folders \
+are located here.
+\"${downloadsDirectory}\"
+
+=> Aircraft folder: Your downloaded aircraft from the internet should be \
+placed here. For example, for the F-16 downloaded from GitHub, \
+remove  the \"-master\", from the folder name and put the \
+\"f16\" folder here.
+\"${aircraftDirectory}\"
+
+=> TerraSync: Scenery automatically downloaded using TerraSync will be located \
+here.
+\"${terrasyncDirectory}\"
+
+=> PhotoScenery folder: The folder called \"Orthophotos\", created by you or \
+your orthophotos downloaded of choice, should be placed here.
+\"${orthoDirectory}\"
+
+=> Custom Scenery folder: Your downloaded aircraft from the internet should be \
+placed here. For example, for the LIPA custom scenery downloaded from GitHub, \
+remove  the \"-master\", from the folder name and put the \
+\"LIPA-fg-customScenery\" folder here.
+\"${customscenDir}\"
+
+Usage: You must specify the components you want FlightGearBuilder-NG to build.
+./FlightGearBuild-NG.sh --install-plib --install-osg --install-simgear \
+--install-flightgear --install-fgdata
+"
+
 [ -z "${info}" ] && info=true
 [ -z "${debug}" ] && debug=false
 [ -z "${dev}" ] && dev=false
 [ -z "${download}" ] && download=true
+[ -z "${checkpackages}" ] && checkpackages=true
 [ -z "${checkdepends}" ] && checkdepends=true
 [ -z "${cmake}" ] && cmake=true
 [ -z "${compile}" ] && compile=true
 [ -z "${install}" ] && install=true
+[ -z "${config}" ] && config=true
 [ -z "${uninstall}" ] && uninstall=false
 
+
+BuilderVersion="20231025-1"                          # This Builder's Version
 projectName="FlightGear"                             # Thing that will be built
-projectVersion="2020.3"                              # Thing's version
+plibBranch="master"                                  # Plib Branch
+[ "${projectVersion}" ] || projectVersion="2020.3"   # FG's Version
+[ "${osgBranch}" ] || osgBranch="OpenSceneGraph-3.6" # OSG Branch
+[ "${osgxrBranch}" ] || osgxrBranch="0.5"            # osgXR Branch
+[ "${flightgearBranch}" ] || flightgearBranch="release/2020.3"    # FG Branch
 fullName="${projectName}-${projectVersion}"          # Thing's full name
-targetCPU="core2"                                    # Optimizing for this CPU
+targetCPU="native"                                   # Optimizing for this CPU
 minimalCPU="core2"                                   # Runs on this or better
-rootDirectory="/media/${USER}/${projectName}"        # Install Thing here
-[[ "${TERMUX_VERSION}" ]] && rootDirectory="${HOME}" # Or here if Termux
-installDirectory="${rootDirectory}/${fullName}"      # Actually, install here
-sourcecodeDirectory="${installDirectory}/SourceCode" # Put source code here
+[ -z "${prefix}" ] && rootDirectory="${HOME}/${projectName}"      # Install dir
+[ -n "${prefix}" ] && rootDirectory="${prefix}/${projectName}"    # Install dir
+installDirectory="${rootDirectory}/${fullName}"      # Subdirectory
+sourcecodeDirectory="${rootDirectory}/SourceCode"    # Put source code here
+flightgearSrc="${sourcecodeDirectory}/flightgear"    # FG's Source directory
+versionFile="${flightgearSrc}/flightgear-version"    # FG's Version number
+FlightGearVersion="$(<"${versionFile}")"
 buildfilesDirectory="${installDirectory}/BuildFiles" # Put build stuff here
-sourceDir() { echo "${sourcecodeDirectory}/${1}"; }  # Get source dir for this
-buildDir() { echo "${buildfilesDirectory:?}/${1}"; } # And build dir for this
-dataDirectory="${installDirectory}/Data"             # FG's Data dir here
-aircraftDirectory="${installDirectory}/Aircraft"     # FG's Aircraft here
-fghomeDirectory="${installDirectory}/FG_HOME"        # FG's Settings here
-fgfsrcFile="${installDirectory}/FG_HOME/fgfsrc"      # FG's "configuration" file
-downloadsDirectory="${installDirectory}/Downloads"   # FG's Download dir
+sourceDir() { print "${sourcecodeDirectory}/${1}"; }  # Get source dir for this
+buildDir() { print "${buildfilesDirectory:?}/${1}"; } # And build dir for this
+dataDirectory="${rootDirectory}/Data"                # FG's Data dir here
+aircraftDirectory="${rootDirectory}/Aircraft"        # FG's Aircraft here
+fghomeDirectory="${rootDirectory}/FG_HOME"           # FG's Settings here
+fgfsrcFile="${fghomeDirectory}/fgfsrc"               # FG's "configuration" file
+downloadsDirectory="${rootDirectory}/Downloads"      # FG's Download dir
+orthoDirectory="${downloadsDirectory}/Photoscenery"  # FG's PhotoScenery dir
 terrasyncDirectory="${downloadsDirectory}/TerraSync" # FG's TerraSync dir
+customscenDir="${downloadsDirectory}/CustomScenery"  # Custom Scenery dir
 fileList="${installDirectory}/InstalledFiles.txt"    # List of every single file
-launcherFile="${installDirectory}/flightgear"        # FG's launcher'
+launcherFile="${installDirectory}/flightgear-${projectVersion}"  # FG's launcher
 
 ## Defining directories needed by FlightGear
 flightgearDirectories=(
@@ -82,13 +265,10 @@ gitJobs=16                                           # Simultaneous Git Jobs
 flightgearGit="https://gitlab.com/flightgear"
 plibAddress="git://git.code.sf.net/p/libplib/code"
 osgAddress="https://github.com/openscenegraph/OpenSceneGraph.git"
+osgxrAddress="https://github.com/amalon/osgXR.git"
 simgearAddress="${flightgearGit}/simgear.git"
 flightgearAddress="${flightgearGit}/flightgear.git"
 fgdataAddress="${flightgearGit}/flightgear/fgdata.git"
-# And their Branches
-plibBranch="master"
-osgBranch="OpenSceneGraph-3.6"
-flightgearBranch="release/2020.3"
 
 #### Compiler Definitions ####
 # CPU and IO Priority for the compiler
@@ -98,20 +278,20 @@ cpuPriority="19"
 ioPriority="3"
 compilerJobs="$(nproc)"                              # Simultaneous Build Jobs
 buildType="Release"                                  # Build type cmake option
-# Disable compiler warnings in cmake
 cmakeOptions=(
-  "-Wno-dev"
+  "-Wno-dev"                                         # Disable warnings in CMake
 )
 
 #### Compiler Flags ####
-cFlags="-w -pipe -O3 -DNDEBUG -funroll-loops \
--mfpmath=both -march=${minimalCPU} \
--mtune=${targetCPU}"                                 # C Flags
+cFlags="-w -pipe -Oz -DNDEBUG -funroll-loops -march=${minimalCPU} \
+-mtune=${targetCPU} -fomit-frame-pointer"            # C Flags
 cxxFlags="${cFlags}"                                 # C++ Flags
-glLibrary="LEGACY"                                   # Or GLVND, which is newer
-PATH="/usr/lib/ccache:$PATH"                         # Enables compiler caching
+glLibrary="GLVND"                                    # GL Lib # LEGACY
+export PATH="/usr/lib/ccache:$PATH"
+export CC="/usr/lib/ccache/x86_64-linux-gnu-gcc"
+export CXX="/usr/lib/ccache/x86_64-linux-gnu-g++"
 export LDFLAGS="-Wl,--copy-dt-needed-entries \
--Wl,-s"                                              # FG won't link without it
+-Wl,-s"                                              # Linker flags
 
 #### CMake flags for each target ####
 # Common flags for all targets
@@ -120,7 +300,10 @@ commonCMakeFlags=(
   "-DCMAKE_INSTALL_PREFIX:PATH=${installDirectory}"
   "-DCMAKE_C_FLAGS:STRING=${cFlags}"
   "-DCMAKE_CXX_FLAGS:STRING=${cxxFlags}"
+  "-DCMAKE_OPTIMIZE_DEPENDENCIES:BOOL=ON"
+  "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"
 )
+
 
 # Plib flags
 plibFlags=(
@@ -130,33 +313,66 @@ plibFlags=(
 # OpenSceneGraph flags
 osgFlags=(
   "-DOpenGL_GL_PREFERENCE=${glLibrary}"
-  "-DBUILD_DASHBOARD_REPORTS:BOOL=OFF"
+  "-DBUILD_DASHBOARD_REPORTS:BOOL=ON"
   "-DOSG_USE_DEPRECATED_API:BOOL=OFF"
   "-DBUILD_OSG_APPLICATIONS:BOOL=OFF"
   "-DBUILD_OSG_DEPRECATED_SERIALIZERS:BOOL=OFF"
-  "-DBUILD_OSG_PLUGINS_BY_DEFAULT:BOOL=ON"
+  "-DBUILD_OSG_PLUGINS_BY_DEFAULT:BOOL=OFF"
   "-DOSG_USE_DEPRECATED_API:BOOL=OFF"
   "-DOSG_AGGRESSIVE_WARNINGS:BOOL=OFF"
   "-DOSG_FIND_3RD_PARTY_DEPS:BOOL=OFF"
   "-DOSG_PLUGIN_SEARCH_INSTALL_DIR_FOR_PLUGINS:BOOL=OFF"
   "-DCMAKE_STRIP:BOOL=ON"
+  "-DBUILD_TESTING:BOOL=OFF"
   "-DBUILD_DOCUMENTATION:BOOL=OFF"
+  "-DASIO_INCLUDE_DIR:PATH="
+  "-DCOLLADA_INCLUDE_DIR:PATH="
+  "-DFBX_INCLUDE_DIR:PATH="
+  "-DFFMPEG_LIBAVCODEC_INCLUDE_DIRS:PATH="
+  "-DFFMPEG_LIBAVDEVICE_INCLUDE_DIRS:PATH="
+  "-DFFMPEG_LIBAVFORMAT_INCLUDE_DIRS:PATH="
+  "-DFFMPEG_LIBAVRESAMPLE_INCLUDE_DIRS:PATH="
+  "-DFFMPEG_LIBAVUTIL_INCLUDE_DIRS:PATH="
+  "-DFFMPEG_LIBSWRESAMPLE_INCLUDE_DIRS:PATH="
+  "-DFFMPEG_LIBSWSCALE_INCLUDE_DIRS:PATH="
+  "-DGIFLIB_INCLUDE_DIR:PATH="
+  "-DGTA_INCLUDE_DIRS:PATH="
+  "-DILMBASE_INCLUDE_DIR:PATH="
+  "-DINVENTOR_INCLUDE_DIR:PATH="
+  "-DLIBLAS_INCLUDE_DIR:PATH="
+  "-DLIBVNCSERVER_INCLUDE_DIR:PATH="
+  "-DOPENCASCADE_INCLUDE_DIR:PATH="
+  "-DOPENEXR_INCLUDE_DIR:PATH="
+  "-DSDL2_INCLUDE_DIR:PATH="
+  "-DSDL_INCLUDE_DIR:PATH="
+  "-DBUILD_OSG_PLUGIN_JPEG:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_PNG:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_AC:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_BMP:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_STL:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_TIFF:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_FREETYPE:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_RGB:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_TF:BOOL=ON"
+  "-DBUILD_OSG_PLUGIN_TXF=ON"
+  "-DBUILD_OSG_PLUGIN_DDS=ON"
+
 )
 
 # SimGear flags
 simgearFlags=(
-  "-DENABLE_SIMD_CODE:BOOL=ON"
+  "-DENABLE_SIMD_CODE:BOOL=OFF"
   "-DENABLE_TESTS:BOOL=OFF"
   "-DENABLE_GDAL:BOOL=OFF"
   "-DSYSTEM_EXPAT:BOOL=OFF"
-  "-DSYSTEM_UDNS:BOOL=ON"
-  "-DUSE_SHADERVG:BOOL=OFF"
   "-DENABLE_PKGUTIL:BOOL=OFF"
+  "-DSIMGEAR_SHARED:BOOL=ON"
+  "-DSIMGEAR_HEADLESS:BOOL=OFF"
+  "-DENABLE_RTI:BOOL=OFF"
 )
 
 # FlightGear flags
 flightgearFlags=(
-  "-DENABLE_TESTS:BOOL=OFF"
   "-DBUILD_TESTING:BOOL=OFF"
   "-DENABLE_AUTOTESTING:BOOL=OFF"
   "-DENABLE_FGCOM:BOOL=OFF"
@@ -168,24 +384,50 @@ flightgearFlags=(
   "-DENABLE_GPSSMOOTH:BOOL=OFF"
   "-DENABLE_JS_DEMO:BOOL=OFF"
   "-DENABLE_METAR:BOOL=OFF"
-  "-DENABLE_PROFILE:BOOL=OFF"
   "-DENABLE_STGMERGE:BOOL=OFF"
   "-DSYSTEM_GSM:BOOL=OFF"
   "-DENABLE_TERRASYNC:BOOL=OFF"
   "-DENABLE_TRAFFIC:BOOL=OFF"
-  "-DENABLE_VR:BOOL=OFF"
-  "-DSYSTEM_OSGXR:BOOL=OFF"
   "-DSYSTEM_SPEEX:BOOL=OFF"
   "-DWITH_FGPANEL:BOOL=OFF"
   "-DFG_BUILD_TYPE:STRING=Release"
+  "-DENABLE_SWIFT:BOOL=ON"
+  "-DENABLE_QT:BOOL=ON"
 )
 
 #### Dependencies needed to run this script and build Thing ####
 # Basically, here we will use `which` to check if those are installed
 generalDependencies=(
-  "gcc"   "g++"   "cmake"   "make"    "ccache"
-  "git"   "ls"    "rm"      "mkdir"   "echo"
-  "chmod" "cp"
+  "gcc"     "g++"   "cmake"   "make"    "ccache"
+  "git"     "ls"    "rm"      "mkdir"   "echo"
+  "chmod"   "cp"
+)
+
+packagesRequired=(
+  "libjsoncpp-dev"    "libbz2-dev"    "libexpat1-dev"   "libswscale-dev"
+  "libncurses5-dev"   "procps"        "zlib1g-dev"      "libarchive-dev"
+  "build-essential"   "libssl-dev"    "git"             "freeglut3-dev"
+  "libglew-dev"       "libopenal-dev" "libboost-dev"    "libavcodec-dev"
+  "libavutil-dev"     "liblzma-dev"   "libavformat-dev" "libudev-dev"
+  "libdbus-1-dev"     "libpng-dev"    "libjpeg-dev"     "cmake"
+  "gcc"               "g++"           "librsvg2-dev"    "libgles2-mesa-dev"
+  "libgudev-1.0-dev"  "liblua5.2-dev" "ccache"          "libevdev-dev"
+  "libinput-dev"      "libgif-dev"    "libtiff-dev"     "libfreetype-dev"
+  "libxmu-dev"        "libxi-dev"     "libxinerama-dev" "libfontconfig-dev"
+  "libopenal-dev"     "libapr1-dev"   "libdrm-dev"      "mesa-common-dev"
+)
+
+packagesOptional=(
+  "libqt5opengl5-dev"   "qml-module-qtquick-controls2"  "libqt5websockets5-dev"
+  "qtdeclarative5-dev"  "qml-module-qtquick-dialogs"    "qttools5-dev"
+  "qttools5-dev-tools"  "qml-module-qtquick2"           "libqt5quick5"
+  "qtbase5-dev-tools"   "qml-module-qtquick-window2"    "libqt5svg5-dev"
+  "qtchooser"           "qtdeclarative5-private-dev"    "qtbase5-private-dev"
+)
+
+packagesVR=(
+  "libgxr-dev"   "libopenxr-dev"
+  "libcogl-dev"  "libgbm-dev" 
 )
 
 #### Individual Dependencies ####
@@ -198,6 +440,12 @@ generalDependencies=(
 #  ""
 #)
 
+osgxrDependencies=(
+  "${installDirectory}/lib/libosg.so"
+  "${installDirectory}/lib/libosgUtil.so"
+  "${installDirectory}/lib/libosgViewer.so"
+)
+
 simgearDependencies=(
   "${installDirectory}/lib/libosg.so"
   "${installDirectory}/lib/libosgViewer.so"
@@ -206,8 +454,8 @@ simgearDependencies=(
 flightgearDependencies=(
   "${installDirectory}/lib/libplibfnt.a"
   "${installDirectory}/lib/libosgText.so"
-  "${installDirectory}/lib/libSimGearCore.a"
-  "${installDirectory}/lib/libSimGearScene.a"
+  "${installDirectory}/lib/libSimGearCore.so"
+  "${installDirectory}/lib/libSimGearScene.so"
 )
 
 # Stuff that this script will be able to build.
@@ -215,6 +463,7 @@ flightgearDependencies=(
 availableComponents=(
   "plib"
   "osg"
+  "osgxr"
   "simgear"
   "flightgear"
   "fgdata"
@@ -260,7 +509,7 @@ DrawText() {
   for shade in {0..100}; do
     color="$(fgcolor "blue" "${shade}")"
     echo -en "\e[u\e[0m\e[1m\e[38;2;${color}m${text}\e[0m"
-    echo
+    print
     sleep "0.01"
   done
 }
@@ -269,82 +518,71 @@ DrawText() {
 FullFG() {
   # Draws the FlightGear logo on the terminal with a fade in effect.
 
-  # Variables used to store colour values.
-  local blue
-  local white
-  local yellow
-  local gray
+  if [[ ${COLORTERM} ]]; then
 
-  echo -en "\e[s"   # Stores cursor's position.
+    # Variables used to store colour values.
+    local blue
+    local white
+    local yellow
+    local gray
 
-  # For each brightness level, 0 to 100, calculate R;G;B value relative to it.
-  for level in {0..100}; do
+    echo -en "\e[s"   # Stores cursor's position.
 
-    blue="$(fgcolor "blue" "${level}")"
-    yellow="$(fgcolor "yellow" "${level}")"
-    white="$(fgcolor "white" "${level}")"
-    gray="$(fgcolor "gray" "${level}")"
+    # For each brightness level, 0 to 100, calculate R;G;B value relative to it.
+    for level in {0..100}; do
 
-    # These functions will simply fill colour to the background
-    # with " " according to values above.
-    BB() { echo -en "\e[48;2;000;000;000m \e[0m"; }  # Black   Background
-    GB() { echo -en "\e[48;2;${gray}m \e[0m"; }      # Gray    Background
-    YB() { echo -en "\e[48;2;${yellow}m \e[0m"; }    # Yellow  Background
-    CB() { echo -en "\e[48;2;${blue}m \e[0m"; }      # ~B~Clue Background
-    WB() { echo -en "\e[48;2;${white}m \e[0m"; }     # White   Background
-    NL() { echo -e "\e[0m"; }                        # New     Line
+      blue="$(fgcolor "blue" "${level}")"
+      yellow="$(fgcolor "yellow" "${level}")"
+      white="$(fgcolor "white" "${level}")"
+      gray="$(fgcolor "gray" "${level}")"
 
-    echo -en "\e[u" # Moves back to previously stored cursor position.
+      # These functions will simply fill colour to the background
+      # with " " according to values above.
+      BB() { echo -en "\e[48;2;000;000;000m \e[0m"; }  # Black   Background
+      GB() { echo -en "\e[48;2;${gray}m \e[0m"; }      # Gray    Background
+      YB() { echo -en "\e[48;2;${yellow}m \e[0m"; }    # Yellow  Background
+      CB() { echo -en "\e[48;2;${blue}m \e[0m"; }      # ~B~Clue Background
+      WB() { echo -en "\e[48;2;${white}m \e[0m"; }     # White   Background
+      NL() { echo -e "\e[0m"; }                        # New     Line
 
-    # Finally, draws the logo.
-    CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;NL
-    CB;YB;YB;BB;BB;YB;YB;WB;WB;WB;WB;WB;WB;WB;WB;WB;WB;CB;CB;CB;NL
-    CB;BB;BB;YB;YB;BB;BB;WB;WB;CB;CB;CB;CB;CB;CB;WB;WB;GB;GB;CB;NL
-    CB;YB;YB;BB;BB;YB;YB;WB;WB;CB;CB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
-    CB;BB;BB;YB;YB;BB;BB;WB;WB;CB;CB;CB;CB;CB;WB;WB;WB;GB;GB;CB;NL
-    CB;YB;YB;BB;BB;YB;YB;WB;WB;CB;CB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
-    CB;BB;BB;YB;YB;BB;BB;WB;WB;CB;CB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
-    CB;YB;YB;BB;BB;YB;YB;WB;WB;WB;WB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
-    CB;BB;BB;YB;YB;BB;BB;WB;WB;WB;WB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
-    CB;CB;CB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;CB;NL
-    CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;NL
+      echo -en "\e[u" # Moves back to previously stored cursor position.
 
-    sleep "0.01"
+      # Finally, draws the logo.
+      CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;NL
+      CB;YB;YB;BB;BB;YB;YB;WB;WB;WB;WB;WB;WB;WB;WB;WB;WB;CB;CB;CB;NL
+      CB;BB;BB;YB;YB;BB;BB;WB;WB;CB;CB;CB;CB;CB;CB;WB;WB;GB;GB;CB;NL
+      CB;YB;YB;BB;BB;YB;YB;WB;WB;CB;CB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
+      CB;BB;BB;YB;YB;BB;BB;WB;WB;CB;CB;CB;CB;CB;WB;WB;WB;GB;GB;CB;NL
+      CB;YB;YB;BB;BB;YB;YB;WB;WB;CB;CB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
+      CB;BB;BB;YB;YB;BB;BB;WB;WB;CB;CB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
+      CB;YB;YB;BB;BB;YB;YB;WB;WB;WB;WB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
+      CB;BB;BB;YB;YB;BB;BB;WB;WB;WB;WB;WB;WB;WB;WB;WB;WB;GB;GB;CB;NL
+      CB;CB;CB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;GB;CB;NL
+      CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;CB;NL
 
-  done
-  NL
+      sleep "0.01"
+
+    done
+    NL
+  else
+	local _f="
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▒▒░░▒▒██████████▓▓▓
+▓░░▒▒░░██▒▒▒▒▒▒██░░▓
+▓▒▒░░▒▒██▒▒██████░░▓
+▓░░▒▒░░██▒▒▒▒▒███░░▓
+▓▒▒░░▒▒██▒▒██████░░▓
+▓░░▒▒░░██▒▒██████░░▓
+▓▒▒░░▒▒██████████░░▓
+▓░░▒▒░░██████████░░▓
+▓▓▓░░░░░░░░░░░░░░░░▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+"
+    echo "${_f}"
+  fi
 }
 
 
-tell() {
-  # This function will write text type and text given by two inputs.
-  # It will colour the text and highlight status according to status type.
-  # TODO: Code below is ugly and wrong. It works, but it sucks. Make it better.
-  # DEBUG: is only shown when `debug=true`
-  local status
-  local text
-  status="${1}"
-  text="${2}"
-  # Dirty way of setting some colours.
-  blue="\e[34m" green="\e[32m" red="\e[31m" rst="\e[0m"
-  nu="\e[4m" bold="\e[1m" nn="\e[24m" nb="\e[22m"
-  # Will print text with type read by `case` who sets formatting.
-  print() { echo -e "${1}-- $(now)${2}[${status}] ${3}${text}${nn}.\e[0m"; }
-  case "${status}" in
-    "DEBUG")
-      [ "${debug}" = true ] && print "${rst}" "${bold}${blue}" "${nb}"
-      ;;
-    "INFO")
-      [ "${info}" = true ] && print "${rst}" "${bold}${green}" "${nb}"
-      ;;
-    "ERROR")
-      [ "${status}" = "ERROR" ] && print "${rst}" "${bold}${red}" "${nu}${nb}"
-      ;;
-    *)
-      print "${rst}" "${bold}${blue}" "${nb}"
-      ;;
-  esac
-}
 
 #### Script's business side starts here ####
 # DependsCheck, Get, CMake, Compile and Install functions,
@@ -360,15 +598,17 @@ tell "DEBUG" "Variables set. Program Start."
 
 makedir() {
   # Safely make dirs and exit if it can't.
-  local thing
-  thing="${1}"
-  tell "DEBUG" "Creating directory \"${thing}\"."
-  if mkdir -p "${thing}"; then
-    tell "DEBUG" "Directory \"${thing}\" created."
-  else
-    tell "ERROR" "Failed to create directory \"${thing}\"."
-    exit 1
-  fi
+  local -a thing
+  thing=( "$@" )
+  for dir in "${thing[@]}"; do
+    tell "DEBUG" "Creating directory \"${dir}\"."
+    if mkdir -p "${dir}"; then
+      tell "DEBUG" "Directory \"${dir}\" created."
+    else
+      tell "ERROR" "Failed to create directory \"${dir}\"."
+      exit 1
+    fi
+  done
 }
 
 
@@ -403,117 +643,170 @@ enterdir() {
 MakeConfig() {
   # This will generate a `fgfsrc` (https://wiki.flightgear.org/Fgfsrc)
   # Settings adequate for old 64 bit CPUs, such as a Pentium 4 and Athlon 64.
-  tell "DEBUG" "Enter MakeConfig."
-  tell "INFO" "Installing ${fgfsrcFile}"
-  delete "${fgfsrcFile}"
-  cat << EOF > "${fgfsrcFile}"
---enable-sentry
---enable-terrasync
---disable-ai-models
---disable-ai-traffic
---max-fps=30
---prop:/sim/tile-cache/enable=false
---prop:/sim/nasal-gc-threaded=true
---prop:/sim/current-view/field-of-view-compensation=true
---prop:/sim/rendering/multithreading-mode=CullDrawThreadPerContext
---prop:/sim/rendering/database-pager/threads=2
---prop:/sim/rendering/filtering=0
---prop:/sim/rendering/multi-sample-buffers=false
---prop:/sim/rendering/multi-samples=0
---prop:/environment/contrail=true
---prop:/scenery/share-events=true
---prop:/sim/rendering/use-vbos=false
---prop:/sim/startup/xsize=1280
---prop:/sim/startup/ysize=720
---prop:/sim/rendering/random-objects=false
---prop:/sim/rendering/random-vegetation=true
---prop:/sim/rendering/random-vegetation-shadows=false
---prop:/sim/rendering/random-vegetation-normals=false
---prop:/sim/rendering/random-vegetation-optimize=false
---prop:/sim/rendering/vegetation-density=0.1
---prop:/sim/rendering/random-buildings=false
---prop:/sim/rendering/osm-buildings=false
+  if [ "${config}" = true ]; then
+    tell "DEBUG" "Enter MakeConfig."
+    tell "INFO" "Installing ${fgfsrcFile}"
+    delete "${fgfsrcFile}"
+    cat << EOF > "${fgfsrcFile}"
+#┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+#┃                                  fgfsrc                                     ┃
+#┠─────────────────────────────────────────────────────────────────────────────┨
+#┃             FlightGearBuilder-NG Custom FligfhtGear Configuration           ┃
+#┠─────────────────────────────────────────────────────────────────────────────┨
+#┃ Do not edit, it will be overwritten by FlightGearBuilder-NG                 ┃
+#┃ Run the script with \`--no-config\` flag to disable this.                   ┃
+#┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+# Generated by FlightGearBuilder-NG Version ${BuilderVersion}
+# On "$(date +%Y-%m-%d)" at "$(date +%H:%M:%S)" hours.
+
+############################ General Settings ##################################
+
+#### Development Settings
+--enable-sentry                                      # Sends crash reports to FG
+
+#### GUI Settings
+--prop:/sim/gui/chat-box-location=left               # Put messages on the left
+--prop:/sim/menubar/autovisibility/enabled=true      # Auto hides the menu bar
+--prop:/sim/mouse/hide-cursor=true                   # Auto hides the cursor
+--geometry=1280x720                                  # Initial window size
+
+#### View Settings
+--prop:/sim/rendering/headshake/enabled=true         # G-Force head movement
+--aspect-ratio-multiplier=1.2                        # Wider view
+--prop:/sim/current-view/field-of-view-compensation=true   # Good for widescreen
+--prop:/sim/rendering/camera-group/znear=0.04        # Needed for VR/Headtrack
+--prop:/sim/rendering/pilot-model=enabled=false      # No ATC sound outside
+
+#### Sound Settings
+--prop:/sim/sound/atc/enabled=false                  # Disables ATC noisy radio
+--prop:/sim/sound/atc/external-view/enabled=false
+
+#### Cache Settings
+--prop:/sim/tile-cache/enable=false                  # Do not cache tiles
+
+#### Scenery Settings
+--enable-terrasync                                   # Enables TerraSync
+--terrain-engine=pagedLOD                            # tilecache, pagedLOD
+# --prop:/scenery/use-vpb=true                       # Use of World Scenery 3.0
+--disable-random-objects                             # No Random Scenery Objects
+--prop:/sim/rendering/random-vegetation-normals=true
+--prop:/sim/rendering/random-vegetation-optimize=true
 --prop:/sim/rendering/building-density=0.1
---prop:/sim/rendering/particles=false
---prop:/sim/rendering/als/shadows/enabled=false
---prop:/sim/rendering/als/shadows/sun-atlas-size=512
---prop:/sim/rendering/max-paged-lod=2
---prop:/sim/rendering/static-lod/detailed=500
---prop:/sim/rendering/static-lod/rough-delta=1000
---prop:/sim/rendering/static-lod/bare-delta=16000
---prop:/sim/rendering/static-lod/aimp-range-mode-distance=false
---prop:/sim/rendering/static-lod/aimp-detailed=0
---prop:/sim/rendering/static-lod/aimp-bare=0
---prop:/sim/rendering/static-lod/aimp-interior=0
---prop:/sim/rendering/horizon-effect=true
---prop:/sim/rendering/enhanced-lighting=false
---prop:/sim/rendering/distance-attenuation=true
---prop:/sim/rendering/precipitation-gui-enable=true
---prop:/sim/rendering/precipitation-enable=true
---prop:/sim/rendering/lightning-enable=false
---prop:/sim/rendering/specular-highlight=false
---prop:/sim/rendering/bump-mapping=false
---prop:/sim/rendering/shadows-ac=false
---prop:/sim/rendering/shadows-ac-transp=false
---prop:/sim/rendering/shadows-ai=false
---prop:/sim/rendering/shadows-to=false
---prop:/sim/rendering/clouds3d-vis-range=4000
---prop:/sim/rendering/clouds3d-detail-range=1000
---prop:/sim/rendering/clouds3d-density=0.05
---prop:/sim/rendering/shadows/enabled=false
---prop:/sim/rendering/shadows/filtering=0
---prop:/sim/rendering/headshake/enabled=true
---prop:/sim/rendering/pilot-model=enabled=false
---prop:/sim/rendering/shader-experimental=false
---prop:/sim/rendering/shader-effects=false
---prop:/sim/rendering/shaders/custom-settings=true
---prop:/sim/rendering/shaders/clouds=0
---prop:/sim/rendering/shaders/generic=0
---prop:/sim/rendering/shaders/landmass=0
---prop:/sim/rendering/shaders/model=0
---prop:/sim/rendering/shaders/contrails=0
---prop:/sim/rendering/shaders/crop=0
---prop:/sim/rendering/shaders/skydome=false
---prop:/sim/rendering/shaders/transition=0
---prop:/sim/rendering/shaders/urban=0
---prop:/sim/rendering/shaders/water=0
---prop:/sim/rendering/shaders/wind-effects=0
---prop:/sim/rendering/shaders/vegetation-effects=0
---prop:/sim/rendering/shaders/forest=0
---prop:/sim/rendering/shaders/lights=0
---prop:/sim/rendering/shaders/quality-level-internal=0
---prop:/sim/rendering/texture-cache/cache-enabled=true
+
+#### AI Traffic Settings
+--disable-ai-traffic                                 # Disables AI Traffic
+
+################################################################################
+
+
+
+########################### Advanced Settings ##################################
+
+#### Multi-Threading Settings
+--prop:/sim/nasal-gc-threaded=true                   # Enables garbage collector
+
+#### OpenSceneGraph Multi-Threading Model
+##
+## Usually, on system with two logical cores or more,
+## "DrawThreadPerContext" will make better utilisation of CPU cores without
+## affecting stability.
+## On systems with multi-core and multi-GPU you might want to try
+## "CullThreadPerCameraDrawThreadPerContext" instead.
+##
+## In case you experience stability problems, try swithing to
+## "CullDrawThreadPerContext", then to "SingleThreaded" if the issues persist.
+--prop:/sim/rendering/multithreading-mode=DrawThreadPerContext
+
+################################################################################
+
+
+
+########################## Rendering Settings ##################################
+
+--enable-distance-attenuation                        # Runway lights attenuation
+--enable-horizon-effect               # Celestial bodies growth near the horizon
+--enable-specular-highlight                          # Texture reflections
+--max-fps=50                                         # Limits FPS
+--bpp=32                                             # Bits per pixel: 16 24 32
+## minimal-quality, low-quality, medium-quality, high-quality, ultra-quality
+--graphics-preset=ultra-quality                      # Graphics Quality Level
+--prop:/sim/rendering/shaders/skydome=true           # Enables ALS
+
+#### Filtering Settings
+## 2, 4, 8, 16
+--prop:/sim/rendering/multi-sample-buffers=true      # Enables anti-aliasing
+--prop:/sim/rendering/multi-samples=4                # Anti-aliasing levels
+--prop:/environment/contrail=true                    # Enables contrails
+--prop:/scenery/share-events=true                    # Shares events over MP
+--prop:/sim/rendering/use-vbos=true                  # Use VBOs
+
+#### Textures Settings
+--prop:/sim/rendering/bump-mapping=true              # Enables bump mapping
+--texture-filtering=4                                # Texture filtering levels
+#--disable-texture-cache                             # Disables DDS caching
+--enable-texture-cache                               # Enables DDS caching
+--texture-cache-dir="/dev/shm/dds"                   # DDS cache directory
 --prop:/sim/rendering/texture-cache/compress-transparent=false
 --prop:/sim/rendering/texture-cache/compress-solid=false
 --prop:/sim/rendering/texture-cache/compress=false
---prop:/sim/menubar/visibility=true
---prop:/sim/menubar/autovisibility/enabled=true
---prop:/sim/gui/chat-box-location=left
---prop:/sim/mouse/hide-cursor=true
---prop:/sim/mouse/cursor-timeout-sec=2
---prop:/sim/traffic-manager/enabled=false
---prop:/sim/ai/scenarios-enabled=false
---prop:/sim/terrasync/ai-data-update=0
---prop:/sim/terrasync/ai-data-enabled=0
+
+#### LOD Settings
+--prop:/sim/rendering/max-paged-lod=2                # Maximum loaded LOD pages
+#--lod-levels=1 3 5 7 9
+#--lod-res=
+# bluemarble, raster, debug
+--lod-texturing=bluemarble                           # Terrain texturing method
+#--lod-range-mult=2
+--prop:/sim/rendering/static-lod/detailed=1000       # Detailed distance
+--prop:/sim/rendering/static-lod/rough-delta=4000    # Not so detailed distance
+--prop:/sim/rendering/static-lod/bare-delta=75000    # Bare scenery distance
+
+#### Shadow Settings
+--prop:/sim/rendering/als/shadows/enabled=true       # Enables ALS Shadows
+--prop:/sim/rendering/als/shadows/sun-atlas-size=2048
+--prop:/sim/rendering/shadows/enabled=true
+--prop:/sim/rendering/shadows-ac=true
+--prop:/sim/rendering/shadows-ai=true
+--prop:/sim/rendering/shadows-to=true
+--prop:/sim/rendering/shadows/filtering=4
+--prop:/sim/rendering/random-vegetation-shadows=true
+
+################################################################################
+
+
+
+###################### Weather and Cloud Settings###############################
+
+#### Weather Settings
+--enable-clouds3d                                    # Enables 3D clouds
+--enable-clouds                                      # Enables 2D clouds
+--visibility=80000                                   # Maximum visibility range
+--prop:/sim/rendering/precipitation-gui-enable=true  # Enables rain
+--prop:/sim/rendering/precipitation-enable=true      # Enables rain
+--prop:/sim/rendering/lightning-enable=true          # Enables lightings
+--prop:/sim/rendering/clouds3d-vis-range=80000       # Maximum 3D clouds range
+--prop:/sim/rendering/clouds3d-detail-range=5000     # Detailed 3D clouds range
+--prop:/sim/rendering/clouds3d-density=0.19          # 3D Clouds density
 --prop:/local-weather/config/asymmetric-buffering-flag=true
---prop:/local-weather/config/distance-to-load-tile-m=10000
---prop:/local-weather/config/distance-to-remove-tile-m=20000
---prop:/local-weather/config/detailed-clouds-flag=false
---prop:/local-weather/config/max-vis-range-m=21000
---prop:/sim/sound/atc/enabled=false
---prop:/sim/sound/atc/external-view/enabled=false
---fog-fastest
---shading-flat
---model-hz=90
---disable-clouds3d
---enable-clouds
---visibility=4000
+--prop:/local-weather/config/distance-to-load-tile-m=80000
+--prop:/local-weather/config/distance-to-remove-tile-m=80000
+--prop:/local-weather/config/detailed-clouds-flag=true
+--prop:/local-weather/config/max-vis-range-m=80000
+
+################################################################################
+
 EOF
+    echo "${fgfsrcFile}" >> "${fileList}"  # Adds fgfsrc file path to file list
+  else
+    tell "DEBUG" "config=false"
+  fi
+  return 0
 }
 
 Get() {
   # This function is a "Code downloader for Git" (tm).
-  # It checks if the code has already been cloned, if so, it checksout the right
+  # It checks if the code has already been cloned, if so, it checkouts the right
   # branch and updates it, if not downloaded, then it downloads it.
   local this="${1}"
   local url="${2}"
@@ -523,9 +816,19 @@ Get() {
     if [ -d "$(sourceDir "${this}")" ]; then
       tell "INFO" "Updating \"${this}\""
       enterdir "$(sourceDir "${this}")"
-      git pull --prune --jobs="${gitJobs}"
-      git checkout "${branch}"
-      git pull --prune --jobs="${gitJobs}"
+      tell "INFO" "Checking if the source code of \"${this}\" was changed."
+      if git diff --exit-code &> /dev/null; then
+        git fetch origin --jobs="${gitJobs}"
+        git checkout --force "${branch}"
+        git pull --rebase --jobs="${gitJobs}"
+      else
+        tell "INFO" "Changes detected, stashing them."
+        git fetch origin --jobs="${gitJobs}"
+        git stash save --include-untracked --quiet
+        git checkout --force "${branch}"
+        git pull --rebase --jobs="${gitJobs}"
+        git stash pop --quiet
+      fi
     else
       tell "INFO" "Downloading \"${this}\" source code."
       makedir "${sourcecodeDirectory}"
@@ -533,7 +836,7 @@ Get() {
       if [ "${this}" = "plib" ]; then
         tell "DEBUG" "\"${this}\" detected, doing version stuff."
         enterdir "$(sourceDir "${this}")"
-        echo "1.8.6" > version
+        print "1.8.6" > version
         sed s/PLIB_TINY_VERSION\ \ 5/PLIB_TINY_VERSION\ \ 6/ -i src/util/ul.h
         git commit --all --message "Increase tiny version to 6."
         return 0
@@ -573,7 +876,7 @@ CMake() {
 
 
 Make() {
-  # Runs either `make` or `make install` for the selected component.
+  # Runs either `ninja/make` or `ninja/make install` for the selected component.
   local thing="${1}"
   local makeCommand="${2}"
   tell "DEBUG" "Enter Make"
@@ -581,7 +884,7 @@ Make() {
     "compile")
       tell "INFO" "Compiling \"${thing}\""
       if nice -n "${cpuPriority}" ionice -c "${ioPriority}" \
-      make --jobs="${compilerJobs}"; then
+      "${_make}" -j "${compilerJobs}"; then
         tell "INFO" "\"${thing}\" compiled successfully"
       else
         tell "ERROR" "\"${thing}\" failed to compile"
@@ -590,7 +893,7 @@ Make() {
     ;;
     "install")
       tell "INFO" "Installing \"${thing}\""
-      if make install; then
+      if "${_make}" install; then
         tell "INFO" "\"${thing}\" installed successfully."
       else
         tell "ERROR" "\"${thing}\" failed to install."
@@ -631,36 +934,112 @@ Install() {
       done
       tell "INFO" "Installing: ${launcherFile}"
       local flightgearArguments=(
-        "--fg-scenery=\${FG_ROOT}/Scenery/:\${FG_TERRASYNC}"
-        "--download-dir=\${FG_DOWNLOAD}"
-        "--terrasync-dir=\${FG_TERRASYNC}"
-        "--fg-aircraft=\${FG_AIRCRAFT}"
+        "--fg-scenery=\"\${Sceneries}\""
+        "--download-dir=\"\${FG_DOWNLOAD}\""
+        "--terrasync-dir=\"\${FG_TERRASYNC}\""
+        "--prop:/sim/rendering/database-pager/threads=\"\${databaseThreads}\""
       )
       # Creates the "binary" to launch FlightGear
       cat << EOF > "${launcherFile}"
 #!/bin/bash
 
-numberCores="\$(nproc)"
-export OSG_NUM_DATABASE_THREADS="\${numberCores}"
-if [ "\${numberCores}" -gt 1 ]; then
-  export OSG_NUM_HTTP_DATABASE_THREADS="\$(expr \${numberCores} / 2)"
+#┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+#┃                              flightgear                                     ┃
+#┠─────────────────────────────────────────────────────────────────────────────┨
+#┃ FlightGear launcher, built with FlightGearBuilder-NG                        ┃
+#┃ DO NOT EDIT                                                                 ┃
+#┃ All changes will be overwriten by FlightGearBuilder-NG                      ┃
+#┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+# Built by FlightGearBuilder-NG Version ${BuilderVersion}
+# On "$(date +%Y-%m-%d)" at "$(date +%H:%M:%S)" hours.
+
+
+print() { printf '%s\n' "\${*}"; }  # "Print" method
+numberCores="\$(nproc)"  # Gets number of cores
+gitJobs=\$((numberCores * 3))  # Set number of git jobs
+branch="${flightgearBranch}"  # FGData Branch
+installDir="${installDirectory}"  # Where FlightGear is installed
+
+
+# Sets number of OSG DB Threads according to the number of cores.
+databaseThreads=\$((numberCores * 2))
+if [ "\${databaseThreads}" -gt 1 ]; then
+  httpThreads=\$((databaseThreads / 2))
 else
-  export OSG_NUM_HTTP_DATABASE_THREADS="\$(expr \${numberCores} / 2)"
+  httpThreads=1
 fi
-export LD_LIBRARY_PATH="${installDirectory}/lib"
-export PATH="${installDirectory}/bin:\$PATH"
-export FG_ROOT="${dataDirectory}"
-export FG_HOME="${fghomeDirectory}"
-export FG_AIRCRAFT="${aircraftDirectory}"
-export FG_DOWNLOAD="${downloadsDirectory}"
-export FG_TERRASYNC="${terrasyncDirectory}"
-${installDirectory}/bin/fgfs ${flightgearArguments[@]} \${@}
+
+
+# Important flags.
+export OSG_NUM_DATABASE_THREADS="\${databaseThreads}"  # Threads Configuration
+export OSG_NUM_HTTP_DATABASE_THREADS="\${httpThreads}"  # Threads Configuration
+export LD_LIBRARY_PATH="\${installDir}/lib"  # Libraries directory
+export PATH="\${installDir}/bin:\$PATH"  # FlightGear PATG
+export FG_ROOT="${dataDirectory}"  # FlightGear Data
+export FG_HOME="${fghomeDirectory}"  # Configuration Files
+export FG_AIRCRAFT="${aircraftDirectory}"  # Aditional Aircraft
+export FG_DOWNLOAD="${downloadsDirectory}"  # Extra Downloads
+export FG_TERRASYNC="${terrasyncDirectory}"  # TerraSync Directory
+Orthophotos="${orthoDirectory}"  # Orthophotos directory
+CustomSceneries="${customscenDir}"  # Custom scenery directory
+
+
+# Scans custom scenery folder for custom sceneries and use them if they exist
+print "Looking for aditional custom sceneries in \"\${CustomSceneries}\"."
+Sceneries=""
+for thing in "\${CustomSceneries}"/*; do
+  [[ -d "\${thing}" ]] && Sceneries+="\${thing}:"
+done
+Sceneries+="\${FG_ROOT}/Scenery:\${FG_TERRASYNC}:\${Orthophotos}"
+
+
+# Checks if FGData exists, switches to the correct branch and updates it.
+if [ -d "\${installDir}" ]; then
+    if [ -d "\${FG_ROOT}" ]; then
+      print "Switching/Updating FGData to version \"\${branch}\"."
+      cd "\${FG_ROOT}" || exit 1
+      if git diff --exit-code &> /dev/null; then
+        git fetch origin "\${branch}" --jobs="\${gitJobs}"
+        git checkout --force -B "\${branch}" origin/"\${branch}"
+        git pull --rebase --jobs="\${gitJobs}"
+      else
+        print "Changes to FGData detected, stashing them."
+        git fetch origin "\${branch}" --jobs="\${gitJobs}"
+        git stash save --include-untracked --quiet
+        git checkout --force -B "\${branch}" origin/"\${branch}"
+        git pull --rebase --jobs="\${gitJobs}"
+        git stash pop --quiet
+      fi
+    else
+      print "Error: Couldn't find FGData directory."
+      exit 1
+    fi
+else
+  print "Error: Couldn't find FlightGear Next, did you build it with --next?"
+  exit 1
+fi
+
+
+# If the variable "debug" is true, FG will run on gdb.
+if [ "\${debug}" ]; then
+  fgfs() { gdb -w --args \${installDir}/bin/fgfs \${*}; }
+else
+  fgfs() { \${installDir}/bin/fgfs \${*}; }
+fi
+
+
+# Runs FlightGear
+print "Running FlightGear ${FlightGearVersion}"
+fgfs ${flightgearArguments[@]} \${*}
 EOF
       chmod +x "${launcherFile}" || exit 1
+      echo "${launcherFile}" >> "${fileList}" # Adds launcher path to file list
       MakeConfig || exit 1
     fi
   else
     tell "DEBUG" "install=false"
+    return 0
   fi
   return 0
 }
@@ -688,38 +1067,95 @@ EOF
 #}
 
 
+# Checks if the required packages are installed on the system.
+PackagesCheck() {
+  local -a packages=("${@:2}")
+  local -a notfound=()
+  local option
+  if [ ! -e "/etc/debian_version" ]; then
+    tell "ERROR" "We only support packges check on Debian"
+    return 1
+  fi
+  for package in "${packages[@]}"; do
+    tell "INFO" "Checking if \"${package}\" is installed"
+    dpkg-query -s "${package}" &> /dev/null
+    case "${?}" in
+      0)  tell "INFO" "[OK]" ;;
+      *)  tell "ERROR" "[Fail]"; notfound+=( "${package}" ) ;;
+    esac
+  done
+  if [ "${#notfound[@]}" -gt 0 ]; then
+    tell "ERROR" "Cound't find the [${notfound[*]}] package(s)"
+    tell "INFO" "Would you like to try to install them?"
+    tell "INFO" "Type \"y\" for yes or anything else for no."
+    read -n 1 -r -s -t 60 option
+    case "${option}" in
+      "y")  sudo apt install "${notfound[@]}" ;;
+      "n")  tell "INFO" "Ok, bye."; exit 2  ;;
+      *)    exit 1  ;;
+    esac
+  fi
+  return 0
+}
+
+
+# Check if the required files are installed on the system.
+FilesCheck() {
+  [ -f "${1}" ]
+}
+
+
+# Check if the required files are installed on the system.
+CommandsCheck() {
+  local thing="${1}"
+  local -a dependenciesList=("${@:2}")
+  local -a notfound=( )
+  case "${checkdepends}" in
+    "true")
+      tell "DEBUG" "Enter CommandsCheck"
+      tell "INFO" "Checking dependencies for \"${thing}\""
+      for dependencyName in "${dependenciesList[@]}"; do
+        tell "INFO" "Checking if \"${dependencyName}\" is installed"
+        which "${dependencyName}" 1> /dev/null "${dependencyName}"
+        case "${?}" in
+          0)  tell "INFO" "[OK]" ;;
+          *)  tell "ERROR" "[Fail]"; notfound+=( "\"${dependencyName}\"" ) ;;
+        esac
+      done
+      ;;
+    *)  tell "DEBUG" "checkdepends=false"
+  esac
+  if [ "${#notfound[@]}" -gt 0 ]; then
+    tell "ERROR" "Make sure the following is installed: [${notfound[*]}]"
+    exit 1
+  fi
+  return 0
+}
+
+
+# Check if required files from other compoments were installed.
 DependsCheck() {
   local thing="${1}"
   local -a dependenciesList=("${@:2}")
-  if [ "${checkdepends}" = true ]; then
-    tell "DEBUG" "Enter DependsCheck"
-    tell "INFO" "Checking dependencies for \"${thing}\""
-    case "${thing}" in
-      "general")
-        for dependencyName in "${dependenciesList[@]}"; do
-          tell "DEBUG" "Checking if [${dependencyName}] is installed"
-          if which "${dependencyName}" 1> /dev/null; then
-            tell "DEBUG" "${dependencyName} found. $(which "${dependencyName}")"
-          else
-            tell "ERROR" "Couldn't find ${dependencyName}"
-            exit 1
-          fi
-        done
-        ;;
-      *)
-        for dependencyName in "${dependenciesList[@]}"; do
-          if [ -f "${dependencyName}" ]; then
-            tell "INFO" "${dependencyName} was found"
-          else
-            tell "ERROR"  "${dependencyName} was not found"
-            exit 1
-          fi
-          return 0
-        done
-        ;;
-    esac
-  else
-    tell "DEBUG" "checkdepends=false"
+  local -a notfound=( )
+  case "${checkdepends}" in
+    "true")
+      tell "DEBUG" "Enter DependsCheck"
+      tell "INFO" "Checking dependencies for \"${thing}\""
+      for dependencyName in "${dependenciesList[@]}"; do
+        tell "INFO" "Checking if \"${dependencyName}\" is installed"
+        FilesCheck "${dependencyName}"
+        case "${?}" in
+          0)  tell "INFO" "[OK]" ;;
+          *)  tell "ERROR" "[Fail]"; notfound+=( "\"${dependencyName}\"" ) ;;
+        esac
+      done
+      ;;
+    *)  tell "DEBUG" "checkdepends=false"
+  esac
+  if [ "${#notfound[@]}" -gt 0 ]; then
+    tell "ERROR" "Cound't find the [${notfound[*]}] file(s)"
+    exit 1
   fi
   return 0
 }
@@ -732,11 +1168,21 @@ _do() {
   tell "DEBUG" "Enter _do."
   local url=""
   local branch=""
-  local -a componentFlags+=( "${commonCMakeFlags[@]}" )
-  case "${targetName}" in
-    "general")
-      DependsCheck "${targetName}" "${generalDependencies[@]}"
+  # Use ninja as make command and tells cmake to generate a ninja buid
+  # if ninja was enabled.
+  case "${ninja}" in
+    true)
+      _make="ninja"
+      local -a componentFlags=( "-G Ninja" "${commonCMakeFlags[@]}" )
+      local -a packages=( "ninja" "${packagesRequired[@]}" )
       ;;
+    *)
+      _make="make"
+      local -a componentFlags=( "${commonCMakeFlags[@]}" )
+      local -a packages=( "${packagesRequired[@]}" )
+      ;;
+  esac
+  case "${targetName}" in
     "plib")
       Get "${targetName}" "${plibAddress}" "${plibBranch}"
 #      DependsCheck "${targetName}" "${plibDependencies[@]}"
@@ -753,6 +1199,20 @@ _do() {
       Compile "${targetName}"
       Install "${targetName}"
       ;;
+    "osgxr")
+      case "${projectVersion}" in
+        "next")
+          Get "${targetName}" "${osgxrAddress}" "${osgxrBranch}"
+          DependsCheck "${targetName}" "${osgxrDependencies[@]}"
+          PackagesCheck "${targetName}" "${packagesVR[@]}"
+          #componentFlags+=( "${osgFlags[@]}" )
+          CMake "${targetName}" "${componentFlags[@]}"
+          Compile "${targetName}"
+          Install "${targetName}"
+          ;;
+        *)  return 0  ;;
+      esac
+      ;;
     "simgear")
       Get "${targetName}" "${simgearAddress}" "${flightgearBranch}"
       DependsCheck "${targetName}" "${simgearDependencies[@]}"
@@ -762,12 +1222,21 @@ _do() {
       Install "${targetName}"
       ;;
     "flightgear")
+      makedir "${downloadsDirectory}" "${aircraftDirectory}"
+      makedir "${terrasyncDirectory}" "${orthoDirectory}" "${customscenDir}"
       Get "${targetName}" "${flightgearAddress}" "${flightgearBranch}"
       DependsCheck "${targetName}" "${flightgearDependencies[@]}"
       componentFlags+=( "${flightgearFlags[@]}" )
       CMake "${targetName}" "${componentFlags[@]}"
       Compile "${targetName}"
       Install "${targetName}"
+      local file
+      file="README.TXT"
+      echo "Add your custom scenery folder here." > "${customscenDir}/${file}"
+      echo "Add your aircraft folders here." > "${aircraftDirectory}/${file}"
+      echo "Add your Orthophotos folder here." > "${orthoDirectory}/${file}"
+      echo "Automatic Scenery download here." > "${terrasyncDirectory}/${file}"
+      echo "Add your extra downloads here." > "${downloadsDirectory}/${file}"
       ;;
     "fgdata")
       Get "${targetName}" "${fgdataAddress}" "${flightgearBranch}"
@@ -779,90 +1248,64 @@ _do() {
 }
 
 
-clear
-DrawText "Welcome to FlightGearBuilder-NG" # Hi there, neatly.
-echo
-FullFG # Fades in the FlightGear logo in a very neat way.
-
-# TODO: Do I want to use this?
-#declare -A validArguments
-#validArguments[""]=""
-
-# Walks though the command line arguments and do stuff.
-# Sets script behaviors by setting those variables.
-for commandlineArgument in "${commandlineArguments[@]}"; do
-  case "${commandlineArgument}" in
-    "--help")
-      tell "ERROR" "There's no help"
-      exit 0
-      ;;
-    "--download")
-      tell "DEBUG" "Download enabled"
-      download=true
-      shift
-      ;;
-    "--no-download")
-      tell "DEBUG" "Download disabled"
-      download=false
-      shift
-      ;;
-    "--check-dependencies")
-      tell "DEBUG" "Check dependencies enabled"
-      checkdepends=true
-      shift
-      ;;
-    "--no-check-dependencies")
-      tell "DEBUG" "Check dependencies disabled"
-      checkdepends=false
-      shift
-      ;;
-    "--cmake")
-      tell "DEBUG" "CMake enabled"
-      cmake=true
-      shift
-      ;;
-    "--no-cmake")
-      tell "DEBUG" "CMake disabled"
-      cmake=false
-      shift
-      ;;
-    "--compile")
-      tell "DEBUG" "Compile enabled"
-      compile=true
-      shift
-      ;;
-    "--no-compile")
-      tell "DEBUG" "Compile disabled"
-      compile=false
-      shift
-      ;;
-    "--install")
-      tell "DEBUG" "Install enabled"
-      install=true
-      shift
-      ;;
-    "--no-install")
-      tell "DEBUG" "Install disabled"
-      install=false
-      shift
-      ;;
-  esac
-done
-
 #### Show Starter ####
-# Checks for general dependencies, `gcc`, `git` and so on.
-[[ "$#" -gt 0 ]] && _do "general"
+DrawText "Welcome to FlightGearBuilder-NG"           # Shows welcome message.
+print
+FullFG                                               # Fades FG logo in.
+
+# Shows help if user either didn't chose any "install" option of if the user
+# used the `--help` command argument.
+if [[ ! "${*}" =~ "install" || "${help}" ]]; then
+  print "${help_text}"
+  exit 1
+fi
+
+# Checks if required packages are installed in the system.
+# "full" also checks for required packages for the graphical Qt based launcher.
+tell "INFO" "Checking if the minimum set of commands is available."
+  case "${ninja}" in
+    "true")
+      generalDependencies+=( "ninja" )
+  esac
+CommandsCheck "General Buld Deps" "${generalDependencies[@]}"
+
+case "${checkpackages}" in
+  "true")
+    tell "INFO" "Checking for the required packages"
+    PackagesCheck "${packagesRequired[@]}"
+    ;;
+  "full")
+    fullPackages=( "${packagesRequired[@]}" "${packagesOptional[@]}" )
+    tell "INFO" "Checking for all required and optional packages"
+    PackagesCheck "${fullPackages[@]}"
+    ;;
+  "false")
+    tell "DEBUG" "Check packages disabled"
+    ;;
+esac
 
 # Walks through all command line arguments, and install each component in
 # an ordered way.
 # For that, it walks, in order, the "components" array and
 # compares it to the argument.
 # Executing the appropriate function accordingly.
+tell "DEBUG" "Parsing command line arguments"
 for componentName in "${availableComponents[@]}"; do
+  tell "DEBUG" "Searching for component \"${componentName}\" in the cmd args"
   for comandlineArgument in "${commandlineArguments[@]}"; do
     if [[ "${comandlineArgument}" == --install-"${componentName}" ]]; then
-      tell "DEBUG" "You've chosen to install ${comandlineArgument}"
+      tell "DEBUG" "Select ${comandlineArgument} to be installed"
+#      case "${comandlineArgument}" in
+#        "all")
+#          for thing in "${availableComponents[@]}"; do
+#            _do "${thing}" || exit 1
+#          done
+#          return 0
+#          ;;
+#        *)
       _do "${componentName}" || exit 1
+#          ;;
+#        esac
     elif [[ "${comandlineArgument}" == --uninstall-"${componentName}" ]]; then
       tell "DEBUG" "You've chosen to uninstall ${comandlineArgument}"
       tell "INFO" "Uninstalling ${componentName}"
